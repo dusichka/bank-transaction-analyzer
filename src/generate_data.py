@@ -5,8 +5,9 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from random import Random
 
-RNG = Random(42)
-OUTPUT_PATH = Path("data/raw/transactions.csv")
+import argparse
+
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
 START_DATE = datetime(2026, 1, 1)
 
 CATEGORIES = ["Groceries", "Transport", "Restaurants", "Electronics", "Travel"]
@@ -14,19 +15,19 @@ MERCHANTS = ["Fresh Market", "City Taxi", "Quick Bite", "Tech Store", "Sky Trave
 COUNTRIES = ["Bulgaria", "Spain", "Germany", "Italy", "France"]
 
 
-def create_transaction(transaction_number: int) -> dict[str, str | float]:
+def create_transaction(transaction_number: int, rng: Random,) -> dict[str, str | float | int]:
     """Create one transaction. Some transactions are deliberately unusual."""
-    category_index = RNG.randrange(len(CATEGORIES))
-    is_unusual = RNG.randrange(20) == 0
+    category_index = rng.randrange(len(CATEGORIES))
+    is_unusual = rng.randrange(20) == 0
 
     if is_unusual:
-        amount = round(RNG.uniform(800, 2500), 2)
+        amount = round(rng.uniform(800, 2500), 2)
     else:
-        amount = round(RNG.uniform(5, 180), 2)
+        amount = round(rng.uniform(5, 180), 2)
 
     timestamp = START_DATE + timedelta(
-        days=RNG.randrange(90),
-        minutes=RNG.randrange(24 * 60),
+        days=rng.randrange(90),
+        minutes=rng.randrange(24 * 60),
     )
 
     return {
@@ -34,15 +35,22 @@ def create_transaction(transaction_number: int) -> dict[str, str | float]:
         "timestamp": timestamp.isoformat(sep=" ", timespec="minutes"),
         "category": CATEGORIES[category_index],
         "merchant": MERCHANTS[category_index],
-        "country": RNG.choice(COUNTRIES),
+        "country": rng.choice(COUNTRIES),
         "amount": amount,
+        "is_anomaly": int(is_unusual),
     }
 
-
 def main() -> None:
-    OUTPUT_PATH.parent.mkdir(parents=True, exist_ok=True)
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--seed", type=int, default=42)
+    parser.add_argument("--output", default="data/raw/transactions.csv")
+    args = parser.parse_args()
 
-    with OUTPUT_PATH.open("w", newline="", encoding="utf-8") as file:
+    rng = Random(args.seed)
+    output_path = PROJECT_ROOT / args.output
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+
+    with output_path.open("w", newline="", encoding="utf-8") as file:
         writer = csv.DictWriter(
             file,
             fieldnames=[
@@ -52,14 +60,16 @@ def main() -> None:
                 "merchant",
                 "country",
                 "amount",
+                "is_anomaly",
             ],
         )
         writer.writeheader()
 
         for transaction_number in range(1, 501):
-            writer.writerow(create_transaction(transaction_number))
+            writer.writerow(create_transaction(transaction_number, rng))
 
-    print(f"Created {OUTPUT_PATH} with 500 transactions.")
+    print(f"Created {output_path} with 500 transactions.")
+
 
 
 if __name__ == "__main__":
