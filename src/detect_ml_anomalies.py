@@ -11,6 +11,7 @@ from sklearn.ensemble import IsolationForest
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 DATABASE_PATH = PROJECT_ROOT / "data/transactions.db"
 OUTPUT_PATH = PROJECT_ROOT / "outputs/ml_anomaly_scores.png"
+THRESHOLD = -0.15
 QUERY = """
     SELECT transaction_id, category, country, amount
     FROM transactions
@@ -35,8 +36,11 @@ def main() -> None:
         random_state=42,
     )
 
-    data["prediction"] = model.fit_predict(features)
+    model.fit(features)
     data["anomaly_score"] = model.decision_function(features)
+
+    data["prediction"] = 1
+    data.loc[data["anomaly_score"] < THRESHOLD, "prediction"] = -1
 
     anomalies = data[data["prediction"] == -1]
     anomalies = anomalies.sort_values("anomaly_score")
@@ -64,10 +68,10 @@ def main() -> None:
     )
 
     ax.axhline(
-        y=0,
+        y=THRESHOLD,
         color="black",
         linestyle="--",
-        label="Default threshold",
+        label=f"Selected threshold({THRESHOLD})",
     )
 
     ax.set_title("Isolation Forest scores — synthetic transactions")
